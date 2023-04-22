@@ -3,8 +3,25 @@ using namespace System.Net
 # Input bindings are passed in via param block.
 param($Request, $TriggerMetadata)
 
-Write-Host "Processing Webhook for Alert $($Request.Body.alertUID)"
-Write-Host "Processing JSON $Request.Body"
+#$AlertWebhook = ConvertFrom-Json $Request.Body
+$AlertWebhook = $Request.RawBody | convertfrom-json -depth 100
+
+Write-Host "--- Request ---"
+Write-Output $Request
+Write-Host "--- TriggerMetadata ---"
+Write-Output $TriggerMetadata
+Write-Host "--- AlertWebhook ---"
+Write-Output $AlertWebhook
+
+Write-Host "--- Request.Body ---"
+Write-Output $Request.Body
+Write-Host "--- Request.RawBody ---"
+Write-Output $Request.RawBody
+
+
+Write-Host "Processing Webhook for Alert [$($AlertWebhook.alertUID)]"
+
+$Email = Get-AlertEmailBody -AlertWebhook $AlertWebhook
 
 $HaloClientID = $env:HaloClientID
 $HaloClientSecret = $env:HaloClientSecret
@@ -26,8 +43,6 @@ $ReoccurringTicketHours = 24
 
 $HaloAlertHistoryDays = 90
 
-
-
 $PriorityHaloMap = @{
     "Critical"    = "1"
     "High"        = "2"
@@ -35,13 +50,6 @@ $PriorityHaloMap = @{
     "Low"         = "4"
     "Information" = "4"
 }
-
-$AlertWebhook = $Request.Body | convertfrom-json -Depth 100
-
-Write-Host "JSON DATA"
-$AlertWebhook
-
-$Email = Get-AlertEmailBody -AlertWebhook $AlertWebhook
 
 if ($Email) {
     $Alert = $Email.Alert
@@ -63,7 +71,7 @@ if ($Email) {
 
     $HaloAlertsReportBase = @{
         name                    = "Datto RMM Improved Alerts PowerShell Function - Alerts Report"
-        sql                     = "SELECT Faultid, Symptom, tstatusdesc, dateoccured, inventorynumber, FGFIAlertType, CFDattoAlertType, fxrefto as ParentID, fcreatedfromid as RelatedID FROM FAULTS inner join TSTATUS on Status = Tstatus Where CFDattoAlertType is not null and fdeleted <> 1"
+        sql                     = "SELECT Faultid, Symptom, tstatusdesc, dateoccured, inventorynumber, FGFIAlertType, CFDattoAlertType, fxrefto as ParentID, fcreatedfromid as RelatedID FROM FAULTS Join faultscustom1 on pkid=faultid inner join TSTATUS on Status = Tstatus Where CFDattoAlertType is not null and fdeleted <> 1"
         description             = "This report is used to quickly obtain alert information for use with the improved Datto RMM Alerts Function"
         type                    = 0
         datasource_id           = 0
@@ -157,7 +165,7 @@ if ($Email) {
 
      
     $Ticket = New-HaloTicket -Ticket $HaloTicketCreate
-
+	
     $ActionUpdate = @{
         id                = 1
         ticket_id         = $Ticket.id
@@ -176,7 +184,9 @@ if ($Email) {
         }
         $Null = New-HaloAction -Action $ActionResolveUpdate
     }
-    
+
+	$Ticket.user = $null
+    Set-HaloTicket $Ticket
 
 } else {
     Write-Host "No alert found"
