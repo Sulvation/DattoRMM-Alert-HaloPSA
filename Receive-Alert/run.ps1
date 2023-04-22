@@ -4,6 +4,7 @@ using namespace System.Net
 param($Request, $TriggerMetadata)
 
 Write-Host "Processing Webhook for Alert $($Request.Body.alertUID)"
+Write-Host "Processing JSON $Request.Body"
 
 $HaloClientID = $env:HaloClientID
 $HaloClientSecret = $env:HaloClientSecret
@@ -37,6 +38,8 @@ $PriorityHaloMap = @{
 
 $AlertWebhook = $Request.Body | convertfrom-json -Depth 100
 
+Write-Host "JSON DATA"
+$AlertWebhook
 
 $Email = Get-AlertEmailBody -AlertWebhook $AlertWebhook
 
